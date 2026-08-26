@@ -95,38 +95,38 @@ Komponen yang perlu ditambahkan:
     lebih sedikit failure mode), baru naik ke SSE/WebSocket kalau requirement
     "realtime" jadi lebih ketat (misalnya perlu update < 5 detik).
 
-Ringkasnya, alurnya jadi: **Sensor/Gateway → Ingestion API → Queue → Worker
-(simpan + cek threshold + notifikasi) → Postgres → Dashboard (polling/SSE)**.
+Ringkasnya, alurnya jadi: Sensor/Gateway → Ingestion API → Queue → Worker
+(simpan + cek threshold + notifikasi) → Postgres → Dashboard (polling/SSE).
 
 ### 2.2. Flow Notifikasi
 
-**Kapan notifikasi dikirim?**
+Kapan notifikasi dikirim?
 Bukan tiap reading baru (akan spam — 1 menit sekali walau statusnya AWAS terus),
 dan bukan periode tetap (mis. tiap 1 jam) karena telat untuk kejadian
-darurat. Yang paling masuk akal: **dikirim saat terjadi *transisi* status ke
-level yang lebih tinggi dan lebih berbahaya** (AMAN→SIAGA, SIAGA→WASPADA,
-WASPADA→AWAS, dst.) — dibandingkan status **tersimpan terakhir yang sudah
-dinotifikasi**, bukan dibanding reading sebelumnya secara mentah.
+darurat. Yang paling masuk akal: dikirim saat terjadi transisi status ke
+level yang lebih tinggi dan lebih berbahaya (AMAN→SIAGA, SIAGA→WASPADA,
+WASPADA→AWAS, dst.) — dibandingkan status tersimpan terakhir yang sudah
+dinotifikasi, bukan dibanding reading sebelumnya secara mentah.
 
-**Mencegah notifikasi berulang saat nilai naik-turun di sekitar threshold
-(flapping, mis. 199→201→199→201):**
+Mencegah notifikasi berulang saat nilai naik-turun di sekitar threshold
+(flapping, mis. 199→201→199→201):
 
-- **Simpan status "resmi" terakhir yang sudah dinotifikasi** per sensor
+- Simpan status "resmi" terakhir yang sudah dinotifikas per sensor
   (kolom `last_notified_status` + `last_notified_at`), terpisah dari status
   hasil klasifikasi mentah tiap reading. Notifikasi baru dikirim kalau status
   resmi ini berubah.
-- **Hysteresis / debounce berbasis waktu**: status baru dianggap "resmi"
+- Hysteresis / debounce berbasis waktu: status baru dianggap "resmi"
   hanya kalau bertahan minimal N menit (mis. 5 menit) berturut-turut — bukan
   1 reading tunggal. Ini menyaring lonjakan sesaat akibat gelombang/noise sensor.
-- **Cooldown per sensor**: setelah notifikasi terkirim, tidak kirim notifikasi
+- Cooldown per sensor: setelah notifikasi terkirim, tidak kirim notifikasi
   baru untuk sensor yang sama dalam X menit ke depan (mis. 15–30 menit),
   *kecuali* statusnya naik ke level yang lebih parah lagi (WASPADA→AWAS tetap
   harus tembus cooldown, karena itu makin darurat).
 - Kombinasi hysteresis (arah naik) + cooldown (arah turun-naik cepat) ini yang
   mencegah kasus 199→201→199→201 memicu 4 notifikasi terpisah.
 
-**Komponen yang bertanggung jawab:**
-Logika ini ada di **worker/consumer** (bagian dari alur 2.1) — bukan di
+Komponen yang bertanggung jawab:
+Logika ini ada di worker/consumer (bagian dari alur 2.1) — bukan di
 ingestion endpoint (yang tugasnya cuma terima & simpan cepat) dan bukan di
 frontend. Worker: simpan reading → hitung status → bandingkan dengan status
 resmi terakhir + cek hysteresis/cooldown → kalau lolos, panggil **Notification
@@ -136,7 +136,7 @@ retry).
 
 ### 2.3. Sensor Mati
 
-**Deteksi:**
+Deteksi:
 Setiap reading masuk mengandung timestamp. Ada job terjadwal (cron
 tiap 1–5 menit, atau dicek langsung setiap kali dashboard/API diakses) yang
 membandingkan `now() - last_reading_ts` tiap sensor terhadap batas toleransi
@@ -166,7 +166,7 @@ spam tapi petugas tetap diingatkan selama masalah belum ditangani.
 
 ## 3. Yang Belum Selesai / Rencana Lanjutan
 
-Bagian **coding dashboard** (ingest, klasifikasi status, chart 24 jam,
+Bagian coding dashboard (ingest, klasifikasi status, chart 24 jam,
 highlight WASPADA/AWAS) sudah jalan penuh sesuai brief. Yang **belum
 diimplementasikan sebagai kode** (sesuai brief, bagian ini memang cukup
 dijawab sebagai analisa, tidak wajib di-coding):
@@ -181,7 +181,7 @@ dijawab sebagai analisa, tidak wajib di-coding):
 - Auto-refresh dashboard (polling/SSE) — saat ini dashboard adalah Server
   Component yang re-render tiap request; belum ada auto-refresh client-side.
 
-**Kalau ada waktu lebih**, urutan yang akan saya kerjakan berikutnya:
+Kalau ada waktu lebih, urutan yang akan saya kerjakan berikutnya:
 
 1. Tambah polling ringan di client (SWR, `refetchInterval` beberapa detik)
    supaya dashboard update tanpa reload manual — paling murah, dampaknya
